@@ -1,0 +1,46 @@
+# Created by venv; see https://docs.python.org/3/library/venv.html
+
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environment
+venv/
+ENV/
+env/
+.venv/
+Lib/
+Include/
+Scripts/
+pyvenv.cfg
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor settings
+.vscode/
+*.swp
+*.swo
+
+# Log and temp files
+*.log
+*.tmp
+
+# Build artifacts
+*.egg-info/
+dist/
+build/
+
+# Ignore compiled files or model artifacts (if any)
+*.pkl
+*.ckpt
+*.h5
+*.pt
+*.onnx
+
+share
