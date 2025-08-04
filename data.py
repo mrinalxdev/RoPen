@@ -42,9 +42,7 @@ class ShakespeareDataset(Dataset):
 
 
 
-    def len(self):
         return len(self.data) - self.block_size
-    
 
     def getItem(self, idx):
         x = self.data[idx:idx + self.block_size]
@@ -53,6 +51,36 @@ class ShakespeareDataset(Dataset):
         return x, y
     
 
-def get_data_loaders(conifg):
+def get_data_loaders(config):
     text = install_shakespeare()
     tokenizer = CharTokenizer()
+
+
+    config['vocab_size'] = tokenizer.vocab_size
+    n = len(text)
+    train_text = text[:int(0.9 * n)]
+    val_text = text[int(0.9 * n)]
+
+
+    train_dataset = ShakespeareDataset(train_text, tokenizer, config['block_size'])
+    val_dataset = ShakespeareDataset(val_text, tokenizer, config['block_size'])
+
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=config['batch_size'],
+        shuffle=True,
+        num_workers=2,
+        pin_memory=True,
+    )
+
+    val_loader = DataLoader (
+        val_dataset,
+        batch_size=config['batch_size'],
+        shuffle=False,
+        num_workers=2,
+        pin_memory=True,
+    )
+
+
+    return train_loader, val_loader, tokenizer

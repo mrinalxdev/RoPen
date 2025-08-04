@@ -8,7 +8,7 @@ Rope enhanced transformer that pens shakespear, attention-only
 
 ### Documenting the workings 
 
-- [ ] Day 1 : Datapiple
+- [x] Day 1 : Datapiple
     - this downloads the tinyshakespeare.txt
     - Character level tokenizer
     - train / validate split
