@@ -20,7 +20,7 @@ CONFIG = {
     'max_new_tokens': 500,
     
     'device': 'cuda', 
-    'compile': True,   
+    'compile': False,   
     'save_checkpoint': True,
     'checkpoint_path': 'checkpoint.pt',
     'log_interval': 100,

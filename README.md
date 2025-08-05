@@ -11,4 +11,4 @@ Rope enhanced transformer that pens shakespear, attention-only
 - [x] Day 1 : Datapiple
     - this downloads the tinyshakespeare.txt
     - Character level tokenizer
-    - train / validate split
+    - train / val split : `important` Keeping it in the ratio of 90:10 

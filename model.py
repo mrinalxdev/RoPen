@@ -1,0 +1,138 @@
+import torch 
+import torch.nn as nn
+import torch.nn.functional as F
+import math
+
+class RoPEAttention(nn.Module):
+    def __init__(self, d_model, n_heads, max_seq_len=1024):
+        super().__init__()
+
+        assert d_model % n_heads == 0
+        self.d_model = d_model
+        self.n_heads = n_heads
+        self.head_dim = d_model // n_heads
+        self.max_seq_len = max_seq_len
+
+
+        self.qk_proj = nn.Linear(d_model, 2 * d_model, bias=False)
+        self.v_proj = nn.Linear(d_model ,d_model, bias=False)
+        self.o_proj = nn.Linear(d_model, d_model, bias=False)
+        self.register_buffer('rope_freqs', self._compute_rope_freqs())
+
+
+        self.register_buffer('rope_freqs', self._compute_rope_freqs())
+        
+    def _compute_rope_freqs(self):
+        freqs = 1.0 / (10000 ** (torch.arange(0, self.head_dim, 2).float() / self.head_dim))
+        positions = torch.arange(self.max_seq_len, dtype=torch.float)
+        freqs = torch.outer(positions, freqs)
+        rope_freqs = torch.stack([freqs.cos(), freqs.sin()], dim=-1)
+        return rope_freqs
+    
+    def _apply_rope(self, x, seq_len):
+        x_pairs = x.view(*x.shape[:-1], -1, 2)
+        freqs = self.rope_freqs[:seq_len].unsqueeze(0).unsqueeze(0)
+        
+        cos_freq = freqs[..., 0]
+        sin_freq = freqs[..., 1]
+        
+        x_rotated = torch.stack([
+            x_pairs[..., 0] * cos_freq - x_pairs[..., 1] * sin_freq,
+            x_pairs[..., 0] * sin_freq + x_pairs[..., 1] * cos_freq
+        ], dim=-1)
+        
+        return x_rotated.view(*x.shape)
+    
+    def forward(self, x, mask=None):
+        B, T, C = x.shape
+        qk = self.qk_proj(x)
+        q, k = qk.chunk(2, dim=-1)
+        v = self.v_proj(x)
+        q = q.view(B, T, self.n_heads, self.head_dim).transpose(1, 2)
+        k = k.view(B, T, self.n_heads, self.head_dim).transpose(1, 2)
+        v = v.view(B, T, self.n_heads, self.head_dim).transpose(1, 2)
+        q = self._apply_rope(q, T)
+        k = self._apply_rope(k, T)
+        scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.head_dim)
+        
+        if mask is not None:
+            scores = scores.masked_fill(mask == 0, float('-inf'))
+        
+        attn_weights = F.softmax(scores, dim=-1)
+        attn_output = torch.matmul(attn_weights, v)
+    
+        attn_output = attn_output.transpose(1, 2).contiguous().view(B, T, C)
+        return self.o_proj(attn_output)
+
+class PureAttentionBlock(nn.Module):
+    """Transformer block with ONLY attention (no FFN)"""
+    
+    def __init__(self, d_model, n_heads, max_seq_len=1024):
+        super().__init__()
+        self.attention = RoPEAttention(d_model, n_heads, max_seq_len)
+        self.norm = nn.LayerNorm(d_model)
+        
+    def forward(self, x, mask=None):
+        return x + self.attention(self.norm(x), mask)
+
+class TinyShakespeareTransformer(nn.Module):
+    """Decoder-only transformer with pure attention blocks"""
+    
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+        self.max_seq_len = config['max_seq_len']
+        
+        # Token embeddings
+        self.token_embed = nn.Embedding(config['vocab_size'], config['d_model'])
+        
+        # Pure attention blocks
+        self.blocks = nn.ModuleList([
+            PureAttentionBlock(
+                config['d_model'], 
+                config['n_heads'], 
+                config['max_seq_len']
+            ) for _ in range(config['n_layers'])
+        ])
+        
+        # Final norm and output
+        self.norm_f = nn.LayerNorm(config['d_model'])
+        self.output_proj = nn.Linear(config['d_model'], config['vocab_size'], bias=False)
+        
+        # Weight tying
+        self.output_proj.weight = self.token_embed.weight
+        
+        # Initialize weights
+        self.apply(self._init_weights)
+        
+    def _init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+    
+    def forward(self, x, targets=None):
+        B, T = x.shape
+        
+        # Causal mask
+        mask = torch.tril(torch.ones(T, T, device=x.device)).view(1, 1, T, T)
+        
+        # Forward pass
+        x = self.token_embed(x)
+        
+        for block in self.blocks:
+            x = block(x, mask)
+        
+        x = self.norm_f(x)
+        logits = self.output_proj(x)
+        
+        loss = None
+        if targets is not None:
+            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
+        
+        return logits, loss
+    
+    def count_parameters(self):
+        return sum(p.numel() for p in self.parameters() if p.requires_grad)
