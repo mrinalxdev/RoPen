@@ -10,7 +10,6 @@ MODE=${1:-both}
 echo "Tiny Shakespeare Pure Attention Transformer"
 echo "================================================"
 
-# Create directory structure if needed
 mkdir -p logs
 
 case $MODE in
@@ -41,4 +40,4 @@ case $MODE in
 esac
 
 echo ""
-echo "✅ Done!"
+echo "Done!"

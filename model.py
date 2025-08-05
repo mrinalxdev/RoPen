@@ -65,7 +65,6 @@ class RoPEAttention(nn.Module):
         return self.o_proj(attn_output)
 
 class PureAttentionBlock(nn.Module):
-    """Transformer block with ONLY attention (no FFN)"""
     
     def __init__(self, d_model, n_heads, max_seq_len=1024):
         super().__init__()
@@ -76,17 +75,15 @@ class PureAttentionBlock(nn.Module):
         return x + self.attention(self.norm(x), mask)
 
 class TinyShakespeareTransformer(nn.Module):
-    """Decoder-only transformer with pure attention blocks"""
+ 
     
     def __init__(self, config):
         super().__init__()
         self.config = config
         self.max_seq_len = config['max_seq_len']
         
-        # Token embeddings
         self.token_embed = nn.Embedding(config['vocab_size'], config['d_model'])
         
-        # Pure attention blocks
         self.blocks = nn.ModuleList([
             PureAttentionBlock(
                 config['d_model'], 
@@ -95,14 +92,11 @@ class TinyShakespeareTransformer(nn.Module):
             ) for _ in range(config['n_layers'])
         ])
         
-        # Final norm and output
         self.norm_f = nn.LayerNorm(config['d_model'])
         self.output_proj = nn.Linear(config['d_model'], config['vocab_size'], bias=False)
         
-        # Weight tying
         self.output_proj.weight = self.token_embed.weight
-        
-        # Initialize weights
+    
         self.apply(self._init_weights)
         
     def _init_weights(self, module):
@@ -115,11 +109,9 @@ class TinyShakespeareTransformer(nn.Module):
     
     def forward(self, x, targets=None):
         B, T = x.shape
-        
-        # Causal mask
+    
         mask = torch.tril(torch.ones(T, T, device=x.device)).view(1, 1, T, T)
         
-        # Forward pass
         x = self.token_embed(x)
         
         for block in self.blocks:

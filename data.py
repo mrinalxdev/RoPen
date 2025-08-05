@@ -89,7 +89,7 @@ def get_data_loaders(config):
     print(f"Val text length: {len(val_text)}")
     print(f"Block size: {config['block_size']}")
 
-    # 🔴 CRITICAL: Ensure val_text is long enough
+    
     if len(val_text) <= config['block_size']:
         raise ValueError(f"Validation text is too short: {len(val_text)} chars. "
                         f"Must be > block_size ({config['block_size']})")
@@ -97,7 +97,7 @@ def get_data_loaders(config):
     train_dataset = ShakespeareDataset(train_text, tokenizer, config['block_size'])
     val_dataset = ShakespeareDataset(val_text, tokenizer, config['block_size'])
 
-    # 🔴 Also validate dataset length
+   
     if len(train_dataset) <= 0:
         raise ValueError(f"Train dataset too short: len(data)={len(train_dataset.data)}, block_size={config['block_size']}")
     if len(val_dataset) <= 0:
@@ -107,7 +107,7 @@ def get_data_loaders(config):
         train_dataset, 
         batch_size=config['batch_size'], 
         shuffle=True,
-        num_workers=0,  # Set to 0 to avoid multiprocessing issues
+        num_workers=0, 
         pin_memory=True if torch.device.type == 'cuda' else False
     )
     val_loader = DataLoader(

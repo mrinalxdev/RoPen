@@ -12,3 +12,21 @@ Rope enhanced transformer that pens shakespear, attention-only
     - this downloads the tinyshakespeare.txt
     - Character level tokenizer
     - train / val split : `important` Keeping it in the ratio of 90:10 
+
+- [x] Day 2 : Model Configuration and pure attention transformer implmentation
+    - RoPe attention with tied Q/K projections
+    - Pure attention block (no FFN layers)
+    - Weight trying between input/output embeddings
+
+- [x] Wrap up, Complete training pipeline
+    - AdamW optimizer with weight decay
+    - Cosine learning rate schedule with warmup
+    - Gradient clipping
+    - Validation loss tracking
+    - Automatic checkpointing
+
+- [x] Text generation part
+    - Top-k and top-p (nucleus) sampling
+    - Temperature control
+    - Checkpoint loading
+    - Multiple prompt examples
