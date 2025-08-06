@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# Tiny Shakespeare Pure Attention Transformer
-# Usage: ./run.sh [train|sample|both]
 
 set -e  # Exit on error
 

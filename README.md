@@ -30,3 +30,12 @@ Rope enhanced transformer that pens shakespear, attention-only
     - Temperature control
     - Checkpoint loading
     - Multiple prompt examples
+
+
+Lets add a feed forward network to transformer block also teach and implement AliBi also add kv cache for faster generation, currently it re-computes all activation every step
+
+
+later : 
+
+improve rope : support partial head dimensions, fix : handle odd dimensions,  Add Residual Stream Dropout & Stochastic Depth
+✅ Add Dropout in Forward Pass
