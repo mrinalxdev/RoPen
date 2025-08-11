@@ -54,14 +54,13 @@ class RoPEAttention(nn.Module):
 
         if kv_cache is not None:
             cached_k, cached_v = kv_cache
-            k = torch.cat([cached_k, k], dim=2)  # [B, n_heads, T_cache + T_new, head_dim]
+            k = torch.cat([cached_k, k], dim=2) 
             v = torch.cat([cached_v, v], dim=2)
 
         new_kv_cache = (k, v)
-
         scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.head_dim)
         if mask is not None:
-            mask = mask[:, :, :T, :T] 
+            mask = mask[:, :, :T, :T]  # Adjust mask for current sequence length
             scores = scores.masked_fill(mask == 0, float('-inf'))
 
         attn_weights = F.softmax(scores, dim=-1)
