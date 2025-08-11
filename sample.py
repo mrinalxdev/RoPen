@@ -27,31 +27,36 @@ def top_k_top_p_filtering(logits, top_k=0, top_p=0.0, filter_value=-float('Inf')
 def generate(model, tokenizer, prompt="", max_new_tokens=500, temperature=0.8, top_k=40, top_p=0.9):
     model.eval()
     device = next(model.parameters()).device
-
+    
     if prompt:
-        idx = torch.tensor([tokenizer.encode(prompt)], dtype=torch.long, device=device)
+        prompt_tokens = tokenizer.encode(prompt)
+        x = torch.tensor([prompt_tokens], dtype=torch.long, device=device)
     else:
-        idx = torch.tensor([[tokenizer.char_to_idx.get('\n', 0)]], dtype=torch.long, device=device)
+        newline_token = tokenizer.char_to_idx.get('\n', 0)
+        x = torch.tensor([[newline_token]], dtype=torch.long, device=device)
+        prompt_tokens = []
+
+    kv_cache = None
+    if len(prompt_tokens) > 0:
+        _, _, kv_cache = model(x, kv_cache=kv_cache)
+        x = x[:, -1:] 
+
+    generated_tokens = prompt_tokens.copy()
 
     for _ in range(max_new_tokens):
-        idx_cond = idx if idx.size(1) <= model.max_seq_len else idx[:, -model.max_seq_len:]
-        logits, _ = model(idx_cond)
-        logits = logits[:, -1, :] / temperature 
-
-        logits_1d = logits.squeeze(0)  
-        logits_1d = top_k_top_p_filtering(logits_1d, top_k=top_k, top_p=top_p)
-        logits = logits_1d.unsqueeze(0)
-
+        logits, _, kv_cache = model(x, kv_cache=kv_cache)
+        logits = logits[:, -1, :] / temperature
+        logits = top_k_top_p_filtering(logits, top_k=top_k, top_p=top_p)
         probs = F.softmax(logits, dim=-1)
-        idx_next = torch.multinomial(probs, num_samples=1)
-        idx = torch.cat((idx, idx_next), dim=1)
+        x = torch.multinomial(probs, num_samples=1)
 
-    return tokenizer.decode(idx[0].tolist())
+        next_token = x.item()
+        generated_tokens.append(next_token)
+
+    return tokenizer.decode(generated_tokens)
 
 def load_model_and_generate(checkpoint_path='checkpoint.pt', prompt="", **kwargs):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    
-
     checkpoint = torch.load(checkpoint_path, map_location=device)
     config = checkpoint['config']
     
@@ -71,13 +76,10 @@ def load_model_and_generate(checkpoint_path='checkpoint.pt', prompt="", **kwargs
         checkpoint['tokenizer_idx_to_char']
     )
     
-
     model = TinyShakespeareTransformer(config).to(device)
     model.load_state_dict(checkpoint['model_state_dict'])
-    
     print(f"Loaded model with validation loss: {checkpoint['val_loss']:.4f}")
     
-
     sample_config = {
         'max_new_tokens': CONFIG['max_new_tokens'],
         'temperature': CONFIG['temperature'],
@@ -100,7 +102,7 @@ if __name__ == "__main__":
         generated = load_model_and_generate(
             prompt="Juliet:",
             max_new_tokens=300,
-            temperature=0.9,  # Higher = more creative
+            temperature=0.9,
             top_k=50
         )
         
