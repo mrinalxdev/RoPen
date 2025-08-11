@@ -5,6 +5,7 @@ CONFIG = {
     'n_layers': 6,
     'max_seq_len': 512,
     'block_size': 128,
+    'dropout' : 0.1,
     
     # Training
     'batch_size': 32,

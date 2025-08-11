@@ -70,18 +70,72 @@ class RoPEAttention(nn.Module):
         return self.o_proj(attn_output), new_kv_cache
 
 
-class PureAttentionBlock(nn.Module):
-    def __init__(self, d_model, n_heads, max_seq_len=1024):
+# class PureAttentionBlock(nn.Module):
+#     def __init__(self, d_model, n_heads, max_seq_len=1024):
+#         super().__init__()
+#         self.attention = RoPEAttention(d_model, n_heads, max_seq_len)
+#         self.norm = nn.LayerNorm(d_model)
+
+#     def forward(self, x, mask=None, kv_cache=None):
+#         attn_output, new_kv_cache = self.attention(self.norm(x), mask, kv_cache)
+#         return x + attn_output, new_kv_cache
+
+class FeedForward(nn.Module):
+    def __init__(self, d_model, dropout=0.1):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(d_model, 4 * d_model),
+            nn.GELU(),
+            nn.Linear(4 * d_model, d_model),
+            nn.Dropout(dropout),
+        )
+    
+    def forward(self, x):
+        return self.net(x)
+
+class TransformerBlock(nn.Module):
+    def __init__(self, d_model, n_heads, max_seq_len=1024, dropout=0.1):
         super().__init__()
         self.attention = RoPEAttention(d_model, n_heads, max_seq_len)
-        self.norm = nn.LayerNorm(d_model)
+        self.ffn = FeedForward(d_model, dropout)
+        self.norm1 = nn.LayerNorm(d_model)
+        self.norm2 = nn.LayerNorm(d_model)
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, x, mask=None, kv_cache=None):
-        attn_output, new_kv_cache = self.attention(self.norm(x), mask, kv_cache)
-        return x + attn_output, new_kv_cache
+        # Attention block
+        attn_output, new_kv_cache = self.attention(self.norm1(x), mask, kv_cache)
+        x = x + self.dropout(attn_output)
+        
+        # FFN block
+        x = x + self.dropout(self.ffn(self.norm2(x)))
+        
+        return x, new_kv_cache
 
 
 class TinyShakespeareTransformer(nn.Module):
+    # def __init__(self, config):
+    #     super().__init__()
+    #     self.config = config
+    #     self.max_seq_len = config['max_seq_len']
+
+    #     self.token_embed = nn.Embedding(config['vocab_size'], config['d_model'])
+        
+    #     self.blocks = nn.ModuleList([
+    #         TransformerBlock(
+    #             config['d_model'],
+    #             config['n_heads'],
+    #             config['max_seq_len'],
+    #             dropout=config.get('dropout', 0.1)
+    #         ) for _ in range(config['n_layers'])
+    #     ])
+        
+    #     self.norm_f = nn.LayerNorm(config['d_model'])
+    #     self.output_proj = nn.Linear(config['d_model'], config['vocab_size'], bias=False)
+    #     self.output_proj.weight = self.token_embed.weight  # Tie weights
+
+    #     self.apply(self._init_weights)
+
     def __init__(self, config):
         super().__init__()
         self.config = config
@@ -90,7 +144,7 @@ class TinyShakespeareTransformer(nn.Module):
         self.token_embed = nn.Embedding(config['vocab_size'], config['d_model'])
         
         self.blocks = nn.ModuleList([
-            PureAttentionBlock(
+            TransformerBlock(
                 config['d_model'], 
                 config['n_heads'], 
                 config['max_seq_len']
